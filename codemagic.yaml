@@ -38,8 +38,6 @@ workflows:
 
           BUILD_NUMBER=$((10#$BUILD_NUMBER))
 
-          
-
           LAST_BUILD_NUMBER=0
 
           if [ "$BUILD_NUMBER" -le "$LAST_BUILD_NUMBER" ]; then
@@ -52,13 +50,9 @@ workflows:
 
           fi
 
-          
-
           export FLUTTER_BUILD_NUMBER="$BUILD_NUMBER"
 
           echo "FLUTTER_BUILD_NUMBER=$BUILD_NUMBER" >> $CM_ENV
-
-          
 
           if [ -f "pubspec.yaml" ]; then
 
@@ -88,8 +82,6 @@ workflows:
 
           fi
 
-          
-
           echo "=========================================="
 
           echo "🔢 GENERANDO BUILD NUMBER"
@@ -103,6 +95,8 @@ workflows:
           echo "Último build number usado: $LAST_BUILD_NUMBER"
 
           echo "pubspec.yaml actualizado: version=$FLUTTER_BUILD_NAME+$BUILD_NUMBER"
+
+          echo "Este número es único y mayor que cualquier build anterior"
 
           echo "=========================================="
 
@@ -148,11 +142,7 @@ workflows:
 
           echo "=========================================="
 
-          
-
           ICON_DIR="ios/Runner/Assets.xcassets/AppIcon.appiconset"
-
-          
 
           if [ ! -d "$ICON_DIR" ]; then
 
@@ -162,35 +152,21 @@ workflows:
 
           fi
 
-          
-
-          ICON_1024="$ICON_DIR/Icon-App-1024x1024@1x.png"
+          ICON_1024="$ICON_DIR/1024.png"
 
           echo ""
 
           echo "🔍 Verificando ícono de 1024x1024 (OBLIGATORIO para App Store)..."
 
-          
-
           if [ ! -f "$ICON_1024" ]; then
 
-            echo "❌ ERROR: Falta el archivo de imagen: Icon-App-1024x1024@1x.png"
+            echo "❌ ERROR: Falta el archivo de imagen: 1024.png"
 
-            echo "   Regenerando íconos..."
+            echo "   Verifica que el archivo exista en: $ICON_DIR"
 
-            flutter pub run flutter_launcher_icons:main
-
-            if [ ! -f "$ICON_1024" ]; then
-
-              echo "❌ ERROR: El ícono de 1024x1024 no se generó correctamente"
-
-              exit 1
-
-            fi
+            exit 1
 
           fi
-
-          
 
           if command -v sips >/dev/null 2>&1; then
 
@@ -198,21 +174,17 @@ workflows:
 
             ICON_HEIGHT=$(sips -g pixelHeight "$ICON_1024" 2>/dev/null | grep pixelHeight | awk '{print $2}')
 
-            
-
             echo "   Tamaño real de la imagen: ${ICON_WIDTH}x${ICON_HEIGHT}"
-
-            
 
             if [ -z "$ICON_WIDTH" ] || [ -z "$ICON_HEIGHT" ]; then
 
               echo "❌ ERROR: No se pudo leer las dimensiones de la imagen"
 
+              echo "   El archivo puede estar corrupto o no ser una imagen válida"
+
               exit 1
 
             fi
-
-            
 
             if [ "$ICON_WIDTH" != "1024" ] || [ "$ICON_HEIGHT" != "1024" ]; then
 
@@ -222,33 +194,11 @@ workflows:
 
               echo "   Tamaño requerido: 1024x1024"
 
-              echo "   Regenerando íconos con el tamaño correcto..."
-
-              flutter pub run flutter_launcher_icons:main
-
-              
-
-              ICON_WIDTH=$(sips -g pixelWidth "$ICON_1024" 2>/dev/null | grep pixelWidth | awk '{print $2}')
-
-              ICON_HEIGHT=$(sips -g pixelHeight "$ICON_1024" 2>/dev/null | grep pixelHeight | awk '{print $2}')
-
-              
-
-              if [ "$ICON_WIDTH" != "1024" ] || [ "$ICON_HEIGHT" != "1024" ]; then
-
-                echo "❌ ERROR: El ícono sigue teniendo el tamaño incorrecto después de regenerar"
-
-                exit 1
-
-              fi
+              exit 1
 
             fi
 
-            
-
             echo "✅ Ícono de 1024x1024 tiene el tamaño correcto"
-
-            
 
             if ! sips -s format png "$ICON_1024" >/dev/null 2>&1; then
 
@@ -259,8 +209,6 @@ workflows:
             fi
 
             echo "✅ La imagen es válida y no está corrupta"
-
-            
 
           else
 
@@ -278,29 +226,29 @@ workflows:
 
           fi
 
-          
-
           echo ""
 
           echo "🔍 Verificando otros íconos requeridos..."
 
           MISSING_COUNT=0
 
-          
-
           for icon in \
 
-            "Icon-App-60x60@3x.png" \
+            "180.png" \
 
-            "Icon-App-60x60@2x.png" \
+            "120.png" \
 
-            "Icon-App-40x40@3x.png" \
+            "87.png" \
 
-            "Icon-App-40x40@2x.png" \
+            "80.png" \
 
-            "Icon-App-29x29@3x.png" \
+            "60.png" \
 
-            "Icon-App-29x29@2x.png"; do
+            "58.png" \
+
+            "40.png" \
+
+            "29.png"; do
 
             if [ ! -f "$ICON_DIR/$icon" ]; then
 
@@ -312,21 +260,19 @@ workflows:
 
           done
 
-          
-
           if [ "$MISSING_COUNT" -gt 0 ]; then
 
-            echo "⚠️  Faltan $MISSING_COUNT íconos, regenerando..."
+            echo "❌ ERROR: Faltan $MISSING_COUNT íconos requeridos"
 
-            flutter pub run flutter_launcher_icons:main
+            echo "   Asegúrate de que todos los archivos estén en: $ICON_DIR"
+
+            exit 1
 
           else
 
             echo "✅ Todos los íconos requeridos están presentes"
 
           fi
-
-          
 
           echo ""
 
@@ -356,8 +302,6 @@ workflows:
 
           echo "=========================================="
 
-          
-
           if [ -f "$CM_ENV" ]; then
 
             echo "Cargando variables de $CM_ENV..."
@@ -372,11 +316,7 @@ workflows:
 
           fi
 
-          
-
           echo "FLUTTER_BUILD_NUMBER antes de verificar: $FLUTTER_BUILD_NUMBER"
-
-          
 
           if [ -z "$FLUTTER_BUILD_NUMBER" ]; then
 
@@ -390,9 +330,11 @@ workflows:
 
             BUILD_NUMBER=$((10#$BUILD_NUMBER))
 
-            if [ "$BUILD_NUMBER" -le 0 ]; then
+            LAST_BUILD_NUMBER=0
 
-              BUILD_NUMBER=1
+            if [ "$BUILD_NUMBER" -le "$LAST_BUILD_NUMBER" ]; then
+
+              BUILD_NUMBER=$((LAST_BUILD_NUMBER + 1))
 
             fi
 
@@ -401,8 +343,6 @@ workflows:
             echo "Build number de emergencia generado: $FLUTTER_BUILD_NUMBER"
 
           fi
-
-          
 
           echo "=========================================="
 
@@ -420,8 +360,6 @@ workflows:
 
           echo ""
 
-          
-
           if [ -z "$FLUTTER_BUILD_NUMBER" ]; then
 
             echo "❌ ERROR CRÍTICO: FLUTTER_BUILD_NUMBER está vacío"
@@ -430,13 +368,9 @@ workflows:
 
           fi
 
-          
-
           echo "✅ Build number válido: $FLUTTER_BUILD_NUMBER"
 
           echo ""
-
-          
 
           echo "Limpiando build anterior..."
 
@@ -444,15 +378,11 @@ workflows:
 
           echo ""
 
-          
-
           echo "Compilando IPA con build number: $FLUTTER_BUILD_NUMBER"
 
           echo "Comando: flutter build ipa --release --build-name=\"$FLUTTER_BUILD_NAME\" --build-number=\"$FLUTTER_BUILD_NUMBER\""
 
           echo ""
-
-          
 
           flutter build ipa \
 
@@ -462,13 +392,9 @@ workflows:
 
             --build-number="$FLUTTER_BUILD_NUMBER"
 
-          
-
           echo ""
 
           echo "✅ Build completado"
-
-          
 
           echo ""
 
@@ -479,8 +405,6 @@ workflows:
           echo "=========================================="
 
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
-
-          
 
           if [ -z "$IPA_PATH" ]; then
 
@@ -494,13 +418,9 @@ workflows:
 
             ACTUAL_BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" /tmp/ipa_check/Payload/Runner.app/Info.plist 2>/dev/null || echo "")
 
-            
-
             echo "Build number en el IPA: $ACTUAL_BUILD_NUMBER"
 
             echo "Build number esperado: $FLUTTER_BUILD_NUMBER"
-
-            
 
             if [ -z "$ACTUAL_BUILD_NUMBER" ]; then
 
@@ -509,8 +429,6 @@ workflows:
               exit 1
 
             fi
-
-            
 
             if [ "$ACTUAL_BUILD_NUMBER" != "$FLUTTER_BUILD_NUMBER" ]; then
 
@@ -524,13 +442,9 @@ workflows:
 
             fi
 
-            
-
             echo "✅ Build number correcto en el IPA: $ACTUAL_BUILD_NUMBER"
 
           fi
-
-          
 
           echo "=========================================="
 
@@ -586,8 +500,6 @@ workflows:
 
           unzip -q -o "$IPA_PATH" -d /tmp/ipa_extract 2>/dev/null || true
 
-          
-
           BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" /tmp/ipa_extract/Payload/Runner.app/Info.plist 2>/dev/null || echo "")
 
           echo "Bundle ID en el IPA: $BUNDLE_ID"
@@ -605,8 +517,6 @@ workflows:
           echo "✅ Bundle ID correcto"
 
           echo ""
-
-          
 
           IPA_BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" /tmp/ipa_extract/Payload/Runner.app/Info.plist 2>/dev/null || echo "")
 
@@ -627,6 +537,22 @@ workflows:
           fi
 
           echo "✅ Build Number correcto"
+
+          echo ""
+
+          echo "Verificando que el build number sea válido..."
+
+          LAST_BUILD_NUMBER=0
+
+          if [ "$IPA_BUILD_NUMBER" -le "$LAST_BUILD_NUMBER" ]; then
+
+            echo "❌ ERROR: Build Number ($IPA_BUILD_NUMBER) debe ser mayor que $LAST_BUILD_NUMBER"
+
+            exit 1
+
+          fi
+
+          echo "✅ Build Number es válido (mayor que $LAST_BUILD_NUMBER)"
 
           echo "=========================================="
 
@@ -700,7 +626,7 @@ workflows:
 
           echo "    b) Revisa la sección 'ACTIVITY' (abajo en TestFlight)"
 
-          echo "    c) Revisa el email asociado a tu cuenta de App Store Connect"
+          echo "    c) Revisa el email: vitomuzio02@gmail.com"
 
           echo "    d) Verifica que el build number sea ÚNICO (no duplicado)"
 
@@ -713,6 +639,12 @@ workflows:
           echo "    - Puede ser problema de código, certificados, o configuración"
 
           echo ""
+
+          echo "=========================================="
+
+          echo "📧 Email: vitomuzio02@gmail.com"
+
+          echo "   (Apple envía notificaciones cuando el build esté listo o haya errores)"
 
           echo "=========================================="
 
@@ -741,4 +673,3 @@ workflows:
         submit_to_testflight: true
 
         notify: true
-
