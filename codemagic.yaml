@@ -126,7 +126,31 @@ workflows:
 
           cd ios
 
-          pod install --repo-update || pod install
+          echo "Instalando CocoaPods..."
+
+          set +e
+
+          POD_OUTPUT=$(pod install --repo-update 2>&1)
+
+          POD_EXIT_CODE=$?
+
+          set -e
+
+          if [ "$POD_EXIT_CODE" != "0" ] || echo "$POD_OUTPUT" | grep -q "500\|Internal server error\|CDN.*couldn't be downloaded"; then
+
+            echo "⚠️  Error con CDN de CocoaPods, usando repo de git como fallback..."
+
+            pod repo remove trunk 2>/dev/null || true
+
+            pod repo add trunk https://github.com/CocoaPods/Specs.git 2>/dev/null || true
+
+            pod install || pod install --repo-update
+
+          else
+
+            echo "$POD_OUTPUT"
+
+          fi
 
           cd ..
 
