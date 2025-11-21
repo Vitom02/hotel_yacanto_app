@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../services/apiconnect.dart';
+import '../services/local_storage.dart';
 import 'check_in_list_screen.dart';
 import 'declarations_screen.dart';
+import 'home_screen.dart';
 
 class CheckInFormScreen extends StatefulWidget {
   const CheckInFormScreen({super.key});
@@ -392,13 +394,51 @@ class _CheckInFormScreenState extends State<CheckInFormScreen> {
         Navigator.of(context).pop();
       }
 
+      // Guardar documento y nombre completo en almacenamiento local si el check-in fue exitoso
+      if (result['success']) {
+        try {
+          final document = _documentController.text.trim();
+          final fullName = _fullNameController.text.trim();
+          print('📝 CheckIn: Intentando guardar documento: $document');
+          print('📝 CheckIn: Intentando guardar nombre: $fullName');
+          if (document.isNotEmpty) {
+            await LocalStorage.saveDocument(document);
+            print('✅ CheckIn: Documento guardado exitosamente');
+          } else {
+            print('⚠️ CheckIn: Documento vacío, no se guarda');
+          }
+          if (fullName.isNotEmpty) {
+            await LocalStorage.saveFullName(fullName);
+            print('✅ CheckIn: Nombre guardado exitosamente');
+          } else {
+            print('⚠️ CheckIn: Nombre vacío, no se guarda');
+          }
+          // Verificar que se guardó correctamente
+          final savedDoc = LocalStorage.getDocument();
+          final savedName = LocalStorage.getFullName();
+          print('🔍 CheckIn: Verificación final - Documento guardado: $savedDoc');
+          print('🔍 CheckIn: Verificación final - Nombre guardado: $savedName');
+        } catch (e) {
+          print('❌ CheckIn: Error guardando datos locales: $e');
+          debugPrint('Error guardando datos locales: $e');
+        }
+      } else {
+        print('❌ CheckIn: Check-in falló, no se guardan datos locales');
+      }
+
       // Mostrar resultado
       if (mounted) {
+        final fullName = _fullNameController.text.trim();
         showDialog<void>(
           context: context,
+          barrierDismissible: false,
           builder: (context) => AlertDialog(
-            title: Text(result['success'] ? 'Éxito' : 'Error'),
-            content: Text(result['mensaje']),
+            title: Text(result['success'] ? '¡Éxito!' : 'Error'),
+            content: Text(
+              result['success']
+                  ? 'Bienvenido $fullName\n\n${result['mensaje']}'
+                  : result['mensaje'],
+            ),
             actions: [
               TextButton(
                 onPressed: () {
@@ -421,6 +461,11 @@ class _CheckInFormScreenState extends State<CheckInFormScreen> {
                       _mealPlan = 'Sólo desayuno';
                       _travelPurpose = 'Turismo';
                     });
+                    // Volver al HomeScreen para que se actualice y muestre todas las funciones
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const HomeScreen()),
+                      (route) => false,
+                    );
                   }
                 },
                 child: const Text('OK'),

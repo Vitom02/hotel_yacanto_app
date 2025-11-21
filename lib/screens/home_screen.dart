@@ -4,12 +4,45 @@ import 'package:url_launcher/url_launcher.dart';
 import 'check_in_form_screen.dart';
 import 'tennis_screen.dart';
 import 'restaurant_reservations_screen.dart';
+import '../services/local_storage.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      setState(() {});
+    }
+  }
+
+  void _refresh() {
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final hasDocument = LocalStorage.hasDocument();
+    final fullName = LocalStorage.getFullName();
+    print('🏠 HomeScreen: hasDocument=$hasDocument, fullName=$fullName');
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -35,6 +68,49 @@ class HomeScreen extends StatelessWidget {
               },
             ),
           ),
+          if (!hasDocument)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16.0),
+              color: Colors.orange.shade50,
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Complete el check-in para acceder a todas las funciones',
+                      style: TextStyle(
+                        color: Colors.orange.shade900,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (hasDocument && fullName != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16.0),
+              color: Colors.green.shade50,
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Bienvenido $fullName',
+                      style: TextStyle(
+                        color: Colors.green.shade900,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -55,39 +131,78 @@ class HomeScreen extends StatelessWidget {
                     assetPath: 'assets/images/check_out.jpg',
                     title: 'Egresos\n(Check-out)',
                     color: Colors.red,
-                    onTap: () => _onMenuTap(context, 'Egresos (Check-out)'),
+                    onTap: hasDocument
+                        ? () => _onMenuTap(context, 'Egresos (Check-out)')
+                        : () => _showRegistrationRequired(context),
                   ),
                   _buildMenuButton(
                     context,
                     icon: Icons.sports_tennis,
                     title: 'Tenis',
                     color: Colors.orange,
-                    onTap: () => _onTenisTap(context),
+                    isDisabled: !hasDocument,
+                    onTap: hasDocument
+                        ? () => _onTenisTap(context)
+                        : () => _showRegistrationRequired(context),
                   ),
                   _buildMenuButton(
                     context,
                     icon: Icons.delivery_dining,
                     title: 'Delivery',
                     color: Colors.purple,
-                    onTap: () => _onMenuTap(context, 'Delivery'),
+                    isDisabled: !hasDocument,
+                    onTap: hasDocument
+                        ? () => _onMenuTap(context, 'Delivery')
+                        : () => _showRegistrationRequired(context),
                   ),
                   _buildMenuButton(
                     context,
                     icon: Icons.restaurant,
                     title: 'Restaurant',
                     color: Colors.brown,
-                    onTap: () => _onRestaurantTap(context),
+                    isDisabled: !hasDocument,
+                    onTap: hasDocument
+                        ? () => _onRestaurantTap(context)
+                        : () => _showRegistrationRequired(context),
                   ),
                   _buildMenuButton(
                     context,
                     icon: Icons.golf_course,
                     title: 'Golf',
                     color: Colors.teal,
-                    onTap: () => _onGolfTap(context),
+                    isDisabled: !hasDocument,
+                    onTap: hasDocument
+                        ? () => _onGolfTap(context)
+                        : () => _showRegistrationRequired(context),
                   ),
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showRegistrationRequired(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Registro requerido'),
+        content: const Text(
+          'Debe completar el check-in primero para acceder a esta función.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Entendido'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _onCheckInTap(context);
+            },
+            child: const Text('Ir a Check-in'),
           ),
         ],
       ),
@@ -152,20 +267,30 @@ class HomeScreen extends StatelessWidget {
     required String title,
     required Color color,
     required VoidCallback onTap,
+    bool isDisabled = false,
   }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: isDisabled
+              ? Colors.grey.withOpacity(0.1)
+              : color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color, width: 2),
+          border: Border.all(
+            color: isDisabled ? Colors.grey : color,
+            width: 2,
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 64, color: color),
+            Icon(
+              icon,
+              size: 64,
+              color: isDisabled ? Colors.grey : color,
+            ),
             const SizedBox(height: 16),
             Text(
               title,
@@ -173,9 +298,20 @@ class HomeScreen extends StatelessWidget {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: color.withOpacity(0.9),
+                color: isDisabled
+                    ? Colors.grey
+                    : color.withOpacity(0.9),
               ),
             ),
+            if (isDisabled)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Icon(
+                  Icons.lock_outline,
+                  size: 16,
+                  color: Colors.grey,
+                ),
+              ),
           ],
         ),
       ),
@@ -183,19 +319,31 @@ class HomeScreen extends StatelessWidget {
   }
 
   void _onMenuTap(BuildContext context, String menuName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Has seleccionado: $menuName'),
-        duration: const Duration(seconds: 2),
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Próximamente'),
+        content: Text(
+          'La funcionalidad de "$menuName" estará disponible próximamente.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Entendido'),
+          ),
+        ],
       ),
     );
   }
 
-  void _onCheckInTap(BuildContext context) {
-    Navigator.push(
+  void _onCheckInTap(BuildContext context) async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const CheckInFormScreen()),
     );
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _onTenisTap(BuildContext context) {

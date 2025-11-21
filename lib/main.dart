@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
+import 'screens/welcome_screen.dart';
+import 'services/local_storage.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await LocalStorage.init();
   runApp(const HotelYacantoApp());
 }
 
@@ -16,7 +19,7 @@ class HotelYacantoApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      home: const WelcomeScreen(),
     );
   }
 }
