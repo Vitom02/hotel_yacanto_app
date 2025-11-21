@@ -22,7 +22,7 @@ workflows:
 
         APP_BUNDLE_IDENTIFIER: "com.vistasouth.hotelyacanto"
 
-        FLUTTER_BUILD_NAME: "1.0.0"
+        FLUTTER_BUILD_NAME: "1.0.1"
 
     scripts:
 
