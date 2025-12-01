@@ -200,6 +200,45 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> obtenerHabitacionPorDocumento(
+    String documento,
+  ) async {
+    try {
+      // Construir URL con query parameters
+      final uri = Uri.parse('$baseUrl/hotel-yacanto/habitaciones/registro')
+          .replace(queryParameters: {
+        'document': documento,
+      });
+
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'data': data,
+        };
+      } else if (response.statusCode == 404) {
+        return {
+          'success': false,
+          'hasRoom': false,
+          'mensaje': 'No tiene habitación asignada',
+        };
+      } else {
+        final data = json.decode(response.body);
+        return {
+          'success': false,
+          'mensaje': data['mensaje'] ?? 'Error al obtener la habitación',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'mensaje': 'Error de conexión: ${e.toString()}',
+      };
+    }
+  }
+
   // MercadoPago deshabilitado temporalmente
   // static Future<bool> clubTieneMercadoPago(int idClub) async {
   //   try {

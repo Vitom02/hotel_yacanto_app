@@ -4,7 +4,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
-            android:name="com.vistasouth.hotelyacanto.MainActivity"
+            android:name="com.cgu.vistahoteles.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""

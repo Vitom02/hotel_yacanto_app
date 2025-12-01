@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'check_in_form_screen.dart';
 import 'tennis_screen.dart';
 import 'restaurant_reservations_screen.dart';
+import 'my_room_screen.dart';
 import '../services/local_storage.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -173,6 +174,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     isDisabled: !hasDocument,
                     onTap: hasDocument
                         ? () => _onGolfTap(context)
+                        : () => _showRegistrationRequired(context),
+                  ),
+                  _buildMenuButton(
+                    context,
+                    icon: Icons.hotel,
+                    title: 'Mi Habitación',
+                    color: Colors.indigo,
+                    isDisabled: !hasDocument,
+                    onTap: hasDocument
+                        ? () => _onMyRoomTap(context)
                         : () => _showRegistrationRequired(context),
                   ),
                 ],
@@ -410,5 +421,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }
     }
+  }
+
+  void _onMyRoomTap(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MyRoomScreen()),
+    );
   }
 }

@@ -20,9 +20,9 @@ workflows:
 
       vars:
 
-        APP_BUNDLE_IDENTIFIER: "com.vistasouth.hotelyacanto"
+        APP_BUNDLE_IDENTIFIER: "com.cgu.vistahoteles"
 
-        FLUTTER_BUILD_NAME: "1.0.1"
+        FLUTTER_BUILD_NAME: "1.0.2"
 
     scripts:
 
