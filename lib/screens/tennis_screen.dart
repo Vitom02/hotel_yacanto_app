@@ -1,18 +1,122 @@
 import 'package:flutter/material.dart';
 import 'tennis_turnos_screen.dart';
-// import '../session/user_session.dart';
+import '../services/local_storage.dart';
+import '../services/apiconnect.dart';
 
-class TennisScreen extends StatelessWidget {
+class TennisScreen extends StatefulWidget {
   const TennisScreen({super.key});
 
   static const int idClub = 9;
   static const int idDeporte = 1;
-  static const String dni = '1232131';
-  static const String nombrecompleto = 'UsuarioTest';
+
+  @override
+  State<TennisScreen> createState() => _TennisScreenState();
+}
+
+class _TennisScreenState extends State<TennisScreen> {
+  String? _dni;
+  String? _nombreCompleto;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatosUsuario();
+  }
+
+  Future<void> _cargarDatosUsuario() async {
+    try {
+      final documento = LocalStorage.getDocument();
+      
+      if (documento == null || documento.isEmpty) {
+        setState(() {
+          _error = 'No se encontró documento guardado';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final checkIns = await ApiService.obtenerCheckIns();
+      
+      final checkIn = checkIns.firstWhere(
+        (ci) => ci['document']?.toString() == documento,
+        orElse: () => null,
+      );
+      
+      if (checkIn == null) {
+        setState(() {
+          _error = 'No se encontró información de check-in';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final nombreCompleto = checkIn['full_name'] as String? ?? 
+                            checkIn['nombre_completo'] as String? ??
+                            checkIn['nombre'] as String? ??
+                            'Usuario';
+
+      setState(() {
+        _dni = documento;
+        _nombreCompleto = nombreCompleto;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Error al cargar datos: $e';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final nombre = nombrecompleto;
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Tenis'),
+          centerTitle: true,
+          elevation: 4,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_error != null || _dni == null || _nombreCompleto == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Tenis'),
+          centerTitle: true,
+          elevation: 4,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.red.shade300,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _error ?? 'Error al cargar datos',
+                style: const TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Volver'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -85,10 +189,10 @@ class TennisScreen extends StatelessWidget {
                   MaterialPageRoute(
                     builder: (context) => TennisTurnosScreen(
                       fechaSeleccionada: date,
-                      idClub: idClub,
-                      idDeporte: idDeporte,
-                      dni: dni,
-                      nombrecompleto: nombrecompleto,
+                      idClub: TennisScreen.idClub,
+                      idDeporte: TennisScreen.idDeporte,
+                      dni: _dni!,
+                      nombrecompleto: _nombreCompleto!,
                     ),
                   ),
                 );

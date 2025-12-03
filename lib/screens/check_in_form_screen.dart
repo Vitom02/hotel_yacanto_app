@@ -210,11 +210,13 @@ class _CheckInFormScreenState extends State<CheckInFormScreen> {
                 _buildTextField(
                   controller: _vehicleDataController,
                   label: 'Datos del vehículo (opcional)',
+                  isOptional: true,
                 ),
                 _buildTextField(
                   controller: _specialRequestsController,
-                  label: 'Solicitudes especiales / alergias',
+                  label: 'Solicitudes especiales / alergias (opcional)',
                   maxLines: 3,
+                  isOptional: true,
                 ),
                 const SizedBox(height: 24),
                 Row(
@@ -274,6 +276,7 @@ class _CheckInFormScreenState extends State<CheckInFormScreen> {
     required String label,
     TextInputType? keyboardType,
     int maxLines = 1,
+    bool isOptional = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -281,12 +284,14 @@ class _CheckInFormScreenState extends State<CheckInFormScreen> {
         controller: controller,
         keyboardType: keyboardType,
         maxLines: maxLines,
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return 'Completa este campo';
-          }
-          return null;
-        },
+        validator: isOptional
+            ? null
+            : (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Completa este campo';
+                }
+                return null;
+              },
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),

@@ -22,7 +22,7 @@ workflows:
 
         APP_BUNDLE_IDENTIFIER: "com.cgu.vistahoteles"
 
-        FLUTTER_BUILD_NAME: "1.0.2"
+        FLUTTER_BUILD_NAME: "1.0.3"
 
     scripts:
 

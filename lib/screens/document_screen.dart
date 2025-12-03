@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import '../services/local_storage.dart';
+import '../services/apiconnect.dart';
 
 class DocumentScreen extends StatefulWidget {
   const DocumentScreen({super.key});
@@ -29,20 +30,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
       _isLoading = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 500));
-
     final document = _documentController.text.trim();
 
-    if (document.isNotEmpty) {
-      await LocalStorage.saveDocument(document);
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const HomeScreen(),
-        ),
-      );
-    } else {
+    if (document.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -50,12 +40,79 @@ class _DocumentScreenState extends State<DocumentScreen> {
           backgroundColor: Colors.red,
         ),
       );
-    }
-
-    if (mounted) {
       setState(() {
         _isLoading = false;
       });
+      return;
+    }
+
+    try {
+      final checkIns = await ApiService.obtenerCheckIns();
+      
+      final checkIn = checkIns.firstWhere(
+        (ci) => ci['document']?.toString() == document,
+        orElse: () => null,
+      );
+
+      if (!mounted) return;
+
+      if (checkIn == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const HomeScreen(),
+          ),
+        );
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Su documento no está registrado, realice un check-in'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      } else {
+        final fullName = checkIn['full_name'] as String? ?? 
+                        checkIn['nombre_completo'] as String? ??
+                        checkIn['nombre'] as String? ??
+                        'Usuario';
+
+        await LocalStorage.saveDocument(document);
+        await LocalStorage.saveFullName(fullName);
+        
+        if (!mounted) return;
+        
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const HomeScreen(),
+          ),
+        );
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('¡Bienvenido $fullName!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al verificar documento: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
