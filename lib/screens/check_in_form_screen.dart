@@ -95,6 +95,7 @@ class _CheckInFormScreenState extends State<CheckInFormScreen> {
                 _buildDateField(
                   controller: _birthDateController,
                   label: 'Fecha de nacimiento',
+                  firstDate: DateTime(1925),
                   lastDate: DateTime.now(),
                 ),
                 const SizedBox(height: 16),

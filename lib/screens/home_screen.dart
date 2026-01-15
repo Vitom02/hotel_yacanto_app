@@ -4,8 +4,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'check_in_form_screen.dart';
 import 'tennis_screen.dart';
 import 'restaurant_reservations_screen.dart';
-import 'my_room_screen.dart';
-import 'welcome_screen.dart';
 import '../services/local_storage.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -53,28 +51,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         centerTitle: true,
         elevation: 4,
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              if (value == 'logout') {
-                _showLogoutConfirmation(context);
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem<String>(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Cerrar sesión'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -199,16 +175,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ? () => _onGolfTap(context)
                         : () => _showRegistrationRequired(context),
                   ),
-                  _buildMenuButton(
-                    context,
-                    icon: Icons.hotel,
-                    title: 'Mi Habitación',
-                    color: Colors.indigo,
-                    isDisabled: !hasDocument,
-                    onTap: hasDocument
-                        ? () => _onMyRoomTap(context)
-                        : () => _showRegistrationRequired(context),
-                  ),
                 ],
               ),
             ),
@@ -237,41 +203,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               _onCheckInTap(context);
             },
             child: const Text('Ir a Check-in'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showLogoutConfirmation(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text(
-          '¿Está seguro que desea cerrar sesión?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await LocalStorage.clearDocument();
-              if (!mounted) return;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Cerrar sesión'),
           ),
         ],
       ),
@@ -479,12 +410,5 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }
     }
-  }
-
-  void _onMyRoomTap(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const MyRoomScreen()),
-    );
   }
 }
