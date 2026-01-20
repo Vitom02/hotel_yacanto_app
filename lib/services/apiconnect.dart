@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
@@ -178,6 +179,52 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Error al obtener check-ins: $e');
+    }
+  }
+
+  /// Busca un check-in previo por documento para autocompletar datos personales
+  static Future<Map<String, dynamic>?> buscarCheckInPorDocumento(
+    String documento,
+  ) async {
+    final url = '$baseUrl/hotel-yacanto/checkin/$documento';
+    print('🌐 [API] GET $url');
+    
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+      );
+
+      print('🌐 [API] Status code: ${response.statusCode}');
+      print('🌐 [API] Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('🌐 [API] Datos decodificados: $data');
+        print('🌐 [API] Tipo de datos: ${data.runtimeType}');
+        
+        // La API puede devolver un objeto directamente o una lista
+        if (data is List && data.isNotEmpty) {
+          print('🌐 [API] La respuesta es una lista, tomando primer elemento');
+          return data[0] as Map<String, dynamic>;
+        } else if (data is Map<String, dynamic>) {
+          return data;
+        } else {
+          print('⚠️ [API] Formato de respuesta no esperado: ${data.runtimeType}');
+          return null;
+        }
+      } else if (response.statusCode == 404) {
+        // No se encontró check-in previo, es normal
+        print('🌐 [API] 404 - No se encontró check-in previo');
+        return null;
+      } else {
+        print('⚠️ [API] Error status code: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      // Error de conexión, no interrumpir el flujo
+      print('❌ [API] Error de conexión: $e');
+      debugPrint('Error buscando check-in por documento: $e');
+      return null;
     }
   }
 

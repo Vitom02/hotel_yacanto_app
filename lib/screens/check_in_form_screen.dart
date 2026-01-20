@@ -31,12 +31,25 @@ class _CheckInFormScreenState extends State<CheckInFormScreen> {
   final TextEditingController _specialRequestsController =
       TextEditingController();
 
+  final FocusNode _documentFocusNode = FocusNode();
+  bool _isLoadingData = false;
+  bool _dataLoaded = false;
+  String _lastSearchedDocument = '';
+
   String _mealPlan = 'Sólo desayuno';
   String _travelPurpose = 'Turismo';
   int _guestCount = 1;
 
   @override
+  void initState() {
+    super.initState();
+    _documentFocusNode.addListener(_onDocumentFocusChange);
+  }
+
+  @override
   void dispose() {
+    _documentFocusNode.removeListener(_onDocumentFocusChange);
+    _documentFocusNode.dispose();
     _fullNameController.dispose();
     _documentController.dispose();
     _nationalityController.dispose();
@@ -49,6 +62,117 @@ class _CheckInFormScreenState extends State<CheckInFormScreen> {
     _vehicleDataController.dispose();
     _specialRequestsController.dispose();
     super.dispose();
+  }
+
+  /// Cuando el campo de documento pierde el foco, busca datos previos
+  void _onDocumentFocusChange() {
+    if (!_documentFocusNode.hasFocus) {
+      final documento = _documentController.text.trim();
+      if (documento.isNotEmpty && documento != _lastSearchedDocument) {
+        _buscarDatosHuesped(documento);
+      }
+    }
+  }
+
+  /// Busca los datos del huésped por documento y los carga en el formulario
+  Future<void> _buscarDatosHuesped(String documento) async {
+    if (_isLoadingData) return;
+
+    print('🔍 [CheckIn] Buscando datos para documento: $documento');
+
+    setState(() {
+      _isLoadingData = true;
+      _lastSearchedDocument = documento;
+    });
+
+    try {
+      final checkInPrevio = await ApiService.buscarCheckInPorDocumento(documento);
+
+      print('📥 [CheckIn] Respuesta de la API: $checkInPrevio');
+      print('📥 [CheckIn] Tipo de respuesta: ${checkInPrevio.runtimeType}');
+      
+      if (checkInPrevio != null) {
+        print('📥 [CheckIn] Campos disponibles: ${checkInPrevio.keys.toList()}');
+        checkInPrevio.forEach((key, value) {
+          print('   - $key: $value (${value.runtimeType})');
+        });
+      } else {
+        print('⚠️ [CheckIn] La API devolvió null - no hay datos previos para este documento');
+      }
+
+      if (checkInPrevio != null && mounted) {
+        // Cargar solo los datos personales (no los de la reserva)
+        // La API puede devolver campos en snake_case o camelCase
+        setState(() {
+          final fullName = checkInPrevio['fullName'] ?? checkInPrevio['full_name'];
+          print('📝 [CheckIn] fullName extraído: $fullName');
+          if (fullName != null) {
+            _fullNameController.text = fullName.toString();
+          }
+          
+          final nationality = checkInPrevio['nationality'];
+          print('📝 [CheckIn] nationality extraído: $nationality');
+          if (nationality != null) {
+            _nationalityController.text = nationality.toString();
+          }
+          
+          final birthDate = checkInPrevio['birthDate'] ?? checkInPrevio['birth_date'];
+          print('📝 [CheckIn] birthDate extraído: $birthDate');
+          if (birthDate != null) {
+            // Convertir de YYYY-MM-DD a DD/MM/YYYY
+            _birthDateController.text = _formatDateForDisplay(birthDate.toString());
+          }
+          
+          final email = checkInPrevio['email'];
+          print('📝 [CheckIn] email extraído: $email');
+          if (email != null) {
+            _emailController.text = email.toString();
+          }
+          
+          final phone = checkInPrevio['phone'];
+          print('📝 [CheckIn] phone extraído: $phone');
+          if (phone != null) {
+            _phoneController.text = phone.toString();
+          }
+          _dataLoaded = true;
+        });
+
+        // Mostrar mensaje de que se cargaron los datos
+        final displayName = checkInPrevio['fullName'] ?? checkInPrevio['full_name'] ?? 'huésped';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Datos cargados de $displayName'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e, stackTrace) {
+      print('❌ [CheckIn] Error buscando datos del huésped: $e');
+      print('❌ [CheckIn] StackTrace: $stackTrace');
+      debugPrint('Error buscando datos del huésped: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingData = false;
+        });
+      }
+    }
+  }
+
+  /// Convierte fecha de YYYY-MM-DD a DD/MM/YYYY para mostrar
+  String _formatDateForDisplay(String dateStr) {
+    try {
+      final parts = dateStr.split('T')[0].split('-');
+      if (parts.length == 3) {
+        return '${parts[2]}/${parts[1]}/${parts[0]}';
+      }
+    } catch (e) {
+      debugPrint('Error formateando fecha: $e');
+    }
+    return dateStr;
   }
 
   @override
@@ -80,13 +204,10 @@ class _CheckInFormScreenState extends State<CheckInFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionTitle('Datos del huésped'),
+                _buildDocumentField(),
                 _buildTextField(
                   controller: _fullNameController,
                   label: 'Nombre completo',
-                ),
-                _buildTextField(
-                  controller: _documentController,
-                  label: 'Documento / Pasaporte',
                 ),
                 _buildTextField(
                   controller: _nationalityController,
@@ -257,6 +378,49 @@ class _CheckInFormScreenState extends State<CheckInFormScreen> {
       child: Text(
         title,
         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  /// Campo de documento con búsqueda automática de datos previos
+  Widget _buildDocumentField() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: _documentController,
+        focusNode: _documentFocusNode,
+        keyboardType: TextInputType.text,
+        textInputAction: TextInputAction.next,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'Completa este campo';
+          }
+          return null;
+        },
+        decoration: InputDecoration(
+          labelText: 'Documento / Pasaporte',
+          border: const OutlineInputBorder(),
+          helperText: 'Ingresa tu documento para cargar datos previos',
+          suffixIcon: _isLoadingData
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.search),
+                  tooltip: 'Buscar datos previos',
+                  onPressed: () {
+                    final documento = _documentController.text.trim();
+                    if (documento.isNotEmpty) {
+                      _buscarDatosHuesped(documento);
+                    }
+                  },
+                ),
+        ),
       ),
     );
   }
