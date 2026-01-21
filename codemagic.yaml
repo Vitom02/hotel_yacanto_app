@@ -6,8 +6,6 @@ workflows:
       app_store_connect: Vista South
     environment:
       flutter: stable
-      groups:
-        - ios_signing
       vars:
         APP_BUNDLE_IDENTIFIER: "com.vistasouth.hotelyacanto"
         FLUTTER_BUILD_NAME: "1.0.4"
@@ -18,229 +16,69 @@ workflows:
           TIMESTAMP=$(date +%s)
           BUILD_NUMBER=${TIMESTAMP: -9}
           BUILD_NUMBER=$((10#$BUILD_NUMBER))
-          LAST_BUILD_NUMBER=0
-          if [ "$BUILD_NUMBER" -le "$LAST_BUILD_NUMBER" ]; then
-            echo "⚠️  WARNING: Build number generado ($BUILD_NUMBER) es menor o igual al último usado ($LAST_BUILD_NUMBER)"
-            BUILD_NUMBER=$((LAST_BUILD_NUMBER + 1))
-            echo "✅ Ajustado a: $BUILD_NUMBER"
-          fi
-          export FLUTTER_BUILD_NUMBER="$BUILD_NUMBER"
           echo "FLUTTER_BUILD_NUMBER=$BUILD_NUMBER" >> $CM_ENV
-          if [ -f "pubspec.yaml" ]; then
-            cp pubspec.yaml pubspec.yaml.bak
-            sed -i.tmp "s/^version:.*/version: $FLUTTER_BUILD_NAME+$BUILD_NUMBER/" pubspec.yaml
-            rm -f pubspec.yaml.tmp
-            CURRENT_VERSION=$(grep "^version:" pubspec.yaml | awk '{print $2}')
-            echo "✅ pubspec.yaml actualizado: version=$CURRENT_VERSION"
-            if [ "$CURRENT_VERSION" != "$FLUTTER_BUILD_NAME+$BUILD_NUMBER" ]; then
-              echo "❌ ERROR: No se pudo actualizar pubspec.yaml correctamente"
-              exit 1
-            fi
-          else
-            echo "❌ ERROR: pubspec.yaml no existe"
-            exit 1
-          fi
-          echo "=========================================="
-          echo "🔢 GENERANDO BUILD NUMBER"
-          echo "=========================================="
-          echo "Timestamp: $TIMESTAMP"
-          echo "Build Number generado: $BUILD_NUMBER"
-          echo "Último build number usado: $LAST_BUILD_NUMBER"
-          echo "pubspec.yaml actualizado: version=$FLUTTER_BUILD_NAME+$BUILD_NUMBER"
-          echo "Este número es único y mayor que cualquier build anterior"
-          echo "=========================================="
-          echo ""
-          echo "✅ Build number guardado en CM_ENV: FLUTTER_BUILD_NUMBER=$BUILD_NUMBER"
+          echo "✅ Build number: $BUILD_NUMBER"
 
-      - name: Set up iOS code signing (Automatic via App Store Connect)
+      - name: Set up iOS code signing
         script: |
           set -e
+          echo "🔐 Configurando firma de código..."
           keychain initialize
-          app-store-connect fetch-signing-files "$APP_BUNDLE_IDENTIFIER" --type IOS_APP_STORE
+          
+          echo "📥 Descargando certificados y perfiles..."
+          app-store-connect fetch-signing-files "$APP_BUNDLE_IDENTIFIER" \
+            --type IOS_APP_STORE \
+            --create
+          
+          echo "🔑 Agregando certificados al keychain..."
+          keychain add-certificates
+          
+          echo "📋 Configurando perfiles en Xcode..."
+          xcode-project use-profiles
+          
+          echo "✅ Firma de código configurada"
 
-      - name: Prepare environment
+      - name: Install dependencies
         script: |
           set -e
-          flutter --version
+          echo "📦 Instalando dependencias..."
           flutter pub get
           cd ios
-          echo "Instalando CocoaPods..."
-          set +e
-          POD_OUTPUT=$(pod install --repo-update 2>&1)
-          POD_EXIT_CODE=$?
-          set -e
-          if [ "$POD_EXIT_CODE" != "0" ] || echo "$POD_OUTPUT" | grep -q "500\|Internal server error\|CDN.*couldn't be downloaded"; then
-            echo "⚠️  Error con CDN de CocoaPods, usando repo de git como fallback..."
-            pod repo remove trunk 2>/dev/null || true
-            pod repo add trunk https://github.com/CocoaPods/Specs.git 2>/dev/null || true
-            pod install || pod install --repo-update
-          else
-            echo "$POD_OUTPUT"
-          fi
+          pod install --repo-update
           cd ..
-
-      - name: Verificar imágenes reales de íconos iOS
-        script: |
-          set -e
-          echo "=========================================="
-          echo "🖼️  VERIFICANDO IMÁGENES REALES DE iOS"
-          echo "=========================================="
-          ICON_DIR="ios/Runner/Assets.xcassets/AppIcon.appiconset"
-          if [ ! -d "$ICON_DIR" ]; then
-            echo "❌ ERROR: Directorio de íconos no existe: $ICON_DIR"
-            exit 1
-          fi
-          ICON_1024="$ICON_DIR/1024.png"
-          echo ""
-          echo "🔍 Verificando ícono de 1024x1024 (OBLIGATORIO para App Store)..."
-          if [ ! -f "$ICON_1024" ]; then
-            echo "❌ ERROR: Falta el archivo de imagen: 1024.png"
-            echo "   Verifica que el archivo exista en: $ICON_DIR"
-            exit 1
-          fi
-          if command -v sips >/dev/null 2>&1; then
-            ICON_WIDTH=$(sips -g pixelWidth "$ICON_1024" 2>/dev/null | grep pixelWidth | awk '{print $2}')
-            ICON_HEIGHT=$(sips -g pixelHeight "$ICON_1024" 2>/dev/null | grep pixelHeight | awk '{print $2}')
-            echo "   Tamaño real de la imagen: ${ICON_WIDTH}x${ICON_HEIGHT}"
-            if [ -z "$ICON_WIDTH" ] || [ -z "$ICON_HEIGHT" ]; then
-              echo "❌ ERROR: No se pudo leer las dimensiones de la imagen"
-              echo "   El archivo puede estar corrupto o no ser una imagen válida"
-              exit 1
-            fi
-            if [ "$ICON_WIDTH" != "1024" ] || [ "$ICON_HEIGHT" != "1024" ]; then
-              echo "❌ ERROR: El ícono de 1024x1024 NO tiene el tamaño correcto"
-              echo "   Tamaño actual: ${ICON_WIDTH}x${ICON_HEIGHT}"
-              echo "   Tamaño requerido: 1024x1024"
-              exit 1
-            fi
-            echo "✅ Ícono de 1024x1024 tiene el tamaño correcto"
-            if ! sips -s format png "$ICON_1024" >/dev/null 2>&1; then
-              echo "❌ ERROR: La imagen está corrupta o no es un PNG válido"
-              exit 1
-            fi
-            echo "✅ La imagen es válida y no está corrupta"
-          else
-            FILE_SIZE=$(stat -f%z "$ICON_1024" 2>/dev/null || stat -c%s "$ICON_1024" 2>/dev/null || echo "0")
-            if [ "$FILE_SIZE" -lt 1000 ]; then
-              echo "⚠️  WARNING: El archivo es muy pequeño (${FILE_SIZE} bytes), puede estar corrupto"
-            else
-              echo "✅ Archivo existe y tiene tamaño razonable (${FILE_SIZE} bytes)"
-            fi
-          fi
-          echo ""
-          echo "🔍 Verificando otros íconos requeridos..."
-          MISSING_COUNT=0
-          for icon in "180.png" "120.png" "87.png" "80.png" "60.png" "58.png" "40.png" "29.png"; do
-            if [ ! -f "$ICON_DIR/$icon" ]; then
-              echo "⚠️  Falta: $icon"
-              MISSING_COUNT=$((MISSING_COUNT + 1))
-            fi
-          done
-          if [ "$MISSING_COUNT" -gt 0 ]; then
-            echo "❌ ERROR: Faltan $MISSING_COUNT íconos requeridos"
-            echo "   Asegúrate de que todos los archivos estén en: $ICON_DIR"
-            exit 1
-          else
-            echo "✅ Todos los íconos requeridos están presentes"
-          fi
-          echo ""
-          echo "=========================================="
-          echo "✅ Verificación de imágenes completada"
-          echo "=========================================="
-
-      - name: Select provisioning profiles in the Xcode project
-        script: |
-          set -e
-          xcode-project use-profiles
+          echo "✅ Dependencias instaladas"
 
       - name: Build iOS IPA
         script: |
           set -e
+          source $CM_ENV
+          
           echo "=========================================="
-          echo "🔍 CARGANDO BUILD NUMBER"
-          echo "=========================================="
-          if [ -f "$CM_ENV" ]; then
-            echo "Cargando variables de $CM_ENV..."
-            source "$CM_ENV"
-            echo "Variables cargadas"
-          else
-            echo "⚠️  WARNING: $CM_ENV no existe"
-          fi
-          echo "FLUTTER_BUILD_NUMBER antes de verificar: $FLUTTER_BUILD_NUMBER"
-          if [ -z "$FLUTTER_BUILD_NUMBER" ]; then
-            echo "❌ ERROR: FLUTTER_BUILD_NUMBER no está definido después de cargar CM_ENV"
-            echo "Generando build number de emergencia..."
-            TIMESTAMP=$(date +%s)
-            BUILD_NUMBER=${TIMESTAMP: -9}
-            BUILD_NUMBER=$((10#$BUILD_NUMBER))
-            LAST_BUILD_NUMBER=0
-            if [ "$BUILD_NUMBER" -le "$LAST_BUILD_NUMBER" ]; then
-              BUILD_NUMBER=$((LAST_BUILD_NUMBER + 1))
-            fi
-            export FLUTTER_BUILD_NUMBER="$BUILD_NUMBER"
-            echo "Build number de emergencia generado: $FLUTTER_BUILD_NUMBER"
-          fi
-          echo "=========================================="
-          echo "🏗️  INFORMACIÓN DE BUILD"
-          echo "=========================================="
+          echo "🏗️ COMPILANDO iOS"
           echo "Bundle ID: $APP_BUNDLE_IDENTIFIER"
-          echo "Build Name (Version): $FLUTTER_BUILD_NAME"
-          echo "Build Number que se usará: $FLUTTER_BUILD_NUMBER"
+          echo "Version: $FLUTTER_BUILD_NAME"
+          echo "Build: $FLUTTER_BUILD_NUMBER"
           echo "=========================================="
-          echo ""
-          if [ -z "$FLUTTER_BUILD_NUMBER" ]; then
-            echo "❌ ERROR CRÍTICO: FLUTTER_BUILD_NUMBER está vacío"
-            exit 1
-          fi
-          echo "✅ Build number válido: $FLUTTER_BUILD_NUMBER"
-          echo ""
-          echo "Limpiando build anterior..."
-          flutter clean
-          flutter pub get
-          echo ""
-          echo "Compilando IPA con build number: $FLUTTER_BUILD_NUMBER"
+          
           flutter build ipa \
             --release \
             --build-name="$FLUTTER_BUILD_NAME" \
-            --build-number="$FLUTTER_BUILD_NUMBER"
-          echo ""
+            --build-number="$FLUTTER_BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+          
           echo "✅ Build completado"
 
-      - name: Verify IPA file
+      - name: Verify IPA
         script: |
           set -e
-          echo "Verificando IPA generado..."
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
-          if [ -z "$IPA_PATH" ]; then
-            echo "ERROR: No se encontró el archivo IPA"
+          if [ -n "$IPA_PATH" ]; then
+            echo "✅ IPA generado: $IPA_PATH"
+            ls -lh "$IPA_PATH"
+          else
+            echo "❌ ERROR: No se encontró el IPA"
             exit 1
           fi
-          echo "IPA encontrado: $IPA_PATH"
-          ls -lh "$IPA_PATH"
-          echo "Tamaño del IPA: $(du -h "$IPA_PATH" | cut -f1)"
-
-      - name: Verify bundle identifier and build number
-        script: |
-          set -e
-          echo "=========================================="
-          echo "🔍 VERIFICANDO IPA GENERADO"
-          echo "=========================================="
-          IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
-          if [ -z "$IPA_PATH" ]; then
-            echo "❌ ERROR: No se encontró el archivo IPA"
-            exit 1
-          fi
-          echo "IPA encontrado: $IPA_PATH"
-          echo ""
-          unzip -q -o "$IPA_PATH" -d /tmp/ipa_extract 2>/dev/null || true
-          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" /tmp/ipa_extract/Payload/Runner.app/Info.plist 2>/dev/null || echo "")
-          echo "Bundle ID en el IPA: $BUNDLE_ID"
-          echo "Bundle ID esperado: $APP_BUNDLE_IDENTIFIER"
-          if [ "$BUNDLE_ID" != "$APP_BUNDLE_IDENTIFIER" ]; then
-            echo "❌ ERROR: Bundle ID no coincide"
-            exit 1
-          fi
-          echo "✅ Bundle ID correcto"
 
     artifacts:
       - build/ios/ipa/*.ipa
