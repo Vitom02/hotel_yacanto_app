@@ -1,0 +1,8 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Shell scripts must have Unix line endings
+*.sh text eol=lf
+
+# Xcode Cloud scripts
+ios/ci_scripts/*.sh text eol=lf
